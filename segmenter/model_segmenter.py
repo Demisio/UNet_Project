@@ -32,6 +32,10 @@ class segmenter:
 
     def __init__(self, exp_config, data, fixed_batch_size=None, do_checkpoints=True):
 
+        self.seed = 42
+        tf.set_random_seed(self.seed)
+        np.random.seed(self.seed)
+
         self.exp_config = exp_config
         self.data = data
         #use log loss or not
@@ -195,7 +199,7 @@ class segmenter:
                 self.summary_writer.flush()
 
             # Do training evaluation
-            if (step + 1) % self.exp_config.train_eval_frequency == 0:
+            if (step + 1) % (self.exp_config.train_eval_frequency * iterations_per_epoch) == 0:
 
                 # Evaluate against the training set
                 logging.info('Training Data Eval:')
@@ -207,7 +211,7 @@ class segmenter:
                                     self.train_lbl_dice_scores)
 
             # Do validation set evaluation
-            if (step + 1) % self.exp_config.val_eval_frequency == 0:
+            if (step + 1) % (self.exp_config.val_eval_frequency * iterations_per_epoch)== 0:
 
                 if self.do_checkpoints:
                     checkpoint_file = os.path.join(self.log_dir, 'model.ckpt')

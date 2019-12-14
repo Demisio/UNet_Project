@@ -24,16 +24,16 @@ nlabels = 3
 
 
 # Network settings
-n0 = 64 #32
-log_loss = True
+n0 = 32 #32
+log_loss = False
 # Cost function
 weight_decay = 0.0
 loss_type = 'dice_macro_robust'  # 'dice_micro'/'dice_macro'/'dice_macro_robust'/'crossentropy'
 
 # Training settings
-batch_size = 4
+batch_size = 2
 n_accum_grads = 1
-learning_rate = 1e-3
+learning_rate = 1e-4
 optimizer_handle = tf.train.AdamOptimizer
 beta1=0.9
 beta2=0.999
@@ -42,18 +42,9 @@ divide_lr_frequency = None
 warmup_training = False
 momentum = None
 
-# Augmentation
-do_augmentations = True
-augmentation_options = { 'do_rotations': True,
-                         'do_scaleaug': True,
-                         'do_fliplr': True,
-                         'do_flipud': True,
-                         'do_elasticaug': True,
-                         'augment_every_nth': 2}
-
 # Rarely changed settings
 use_data_fraction = False  # Should normally be False
 # max_iterations = 1000000
 num_epochs = 200
-train_eval_frequency = 10
+train_eval_frequency = 1
 val_eval_frequency = 1
