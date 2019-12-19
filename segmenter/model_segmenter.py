@@ -8,6 +8,7 @@ import shutil
 import tensorflow as tf
 import numpy as np
 from sklearn.metrics import f1_score
+from scipy.stats import pearsonr
 from skimage import transform  # used for CAM saliency
 
 from tfwrapper import losses
@@ -15,6 +16,8 @@ from tfwrapper import utils as tf_utils
 import config.system as sys_config
 from grad_accum_optimizers import grad_accum_optimizer_classifier
 from sklearn.preprocessing import OneHotEncoder
+import pickle
+from collections import deque
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
@@ -141,6 +144,8 @@ class segmenter:
         logging.info(self.exp_config.experiment_name)
         logging.info('=================================')
 
+        real_start_time = time.time()
+
         # initialise all weights etc..
         self.sess.run(tf.global_variables_initializer())
 
@@ -153,8 +158,12 @@ class segmenter:
         best_val = np.inf
         best_dice_score = 0
 
+        # use deque for smoothing the validation score
+        val_deque = deque([np.inf] * 5, maxlen=5)
+        dice_deque = deque([0] * 5, maxlen=5)
+
         num_samples = self.data.nr_images
-        iterations_per_epoch = num_samples // self.exp_config.batch_size
+        iterations_per_epoch = num_samples / self.exp_config.batch_size
 
         for step in range(self.init_step, int(self.exp_config.num_epochs * iterations_per_epoch)):
 
@@ -227,19 +236,32 @@ class segmenter:
                                                          self.val_mean_dice_score,
                                                          self.val_lbl_dice_scores)
 
-                if val_dice >= best_dice_score:
-                    best_dice_score = val_dice
+                dice_deque.append(val_dice)
+                val_deque.append(val_loss)
+
+                smoothed_dice = np.mean(dice_deque)
+                smoothed_val = np.mean(val_deque)
+
+                if smoothed_dice >= best_dice_score:
+                    best_dice_score = smoothed_dice
+                    best_step = step
                     best_file = os.path.join(self.log_dir, 'model_best_dice.ckpt')
                     self.saver_best_dice.save(self.sess, best_file, global_step=step)
-                    logging.info( 'Found new best Dice score on validation set! - %f -  Saving model_best_dice.ckpt' % val_dice)
+                    logging.info( 'Found new best Dice score on validation set! - %f -  Saving model_best_dice.ckpt' % smoothed_dice)
 
-                if val_loss < best_val:
-                    best_val = val_loss
+                if smoothed_val < best_val:
+                    best_val = smoothed_val
                     best_file = os.path.join(self.log_dir, 'model_best_xent.ckpt')
                     self.saver_best_xent.save(self.sess, best_file, global_step=step)
                     logging.info('Found new best crossentropy on validation set! - %f -  Saving model_best_xent.ckpt' % val_loss)
 
             self.sess.run(self.increase_global_step)
+
+        final_time = time.time() - real_start_time
+        print('Training took a total of {} hours'.format(final_time / 3600.0))
+        # print('Number of trainable Parameters in model: ' + self.sess.run(str(count_params)))
+        print('')
+        print('Best Dice Score on Validation set is: {} at Epoch {}'.format(best_dice_score, int(best_step / iterations_per_epoch)))
 
         # loading weights and other stuff, function from Christian Baumgartner's discriminative learning toolbox
 
@@ -265,6 +287,153 @@ class segmenter:
                                             feed_dict={self.x_pl: images, self.training_pl: False})
 
         return prediction, softmax
+
+    def test(self, batch_size=1, num_sample_volumes=2, checkpoint = 'best_dice', datatype=None, set='test',
+             gen_img=False, group_label=None, group_pred=None):
+        """
+        Used when testing the trained model, calculates the defined metrics for the input set (train / val / test) and has option
+        to create new fake datasets.
+        :param batch_size:
+        :param num_sample_volumes:
+        :param checkpoint:
+        :param heart_data:
+        :param datatype:
+        :param gen_img:
+        :return:
+        """
+        self.log_dir = os.path.join('./logs', self.exp_config.log_name, self.exp_config.fold_name)
+        datatype = datatype
+        dtype = np.uint8
+
+        summary_dict = {}
+        summary_dict['nr_samples'] = num_sample_volumes
+
+        if set == 'train':
+            print('INFO:   Evaluating Test results for Training data')
+            print('')
+        elif set == 'validation':
+            print('INFO:   Evaluating Test results for Validation data')
+            print('')
+        elif set == 'test':
+            print('INFO:   Evaluating Test results for Test data')
+            print('')
+        else:
+            raise ValueError('Need to specify either train, validation or test split')
+
+        if gen_img:
+            fold_grp = group_label.create_group(self.exp_config.fold_name)
+            fake_fold_grp = group_pred.create_group(self.exp_config.fold_name)
+
+        self.load_weights(type=checkpoint)
+
+        num_samples = self.data.nr_images * self.data.aug_factor
+        num_iterations = num_samples // batch_size
+
+        tot_dice = 0
+        tot_corr = 0
+        sample_vol_idx_list = []
+
+        for sample in range(num_sample_volumes):
+            print('INFO:   Currently iterating through sample volume {} (non-coded)'.format(sample))
+            dice = 0
+            frac_list_b = []
+            frac_list_fake_b = []
+            num_batches = 0
+
+            labels = np.zeros(shape=self.image_tensor_shape, dtype=np.uint8)
+            pred = np.zeros(shape=self.labels_tensor_shape, dtype=np.uint8)
+
+            # generate nested dict with information
+            summary_dict[sample] = {}
+
+            for iteration in range(int(num_iterations)):
+
+                if iteration % 100 == 0:
+                    print('INFO:   Currently at iteration {} / {}'.format(iteration, int(num_iterations)))
+
+                # iterate also over number of sample volumes
+                if set == 'train':
+                    x, y, sample_vol_idx = self.data.train.test_image(img_idx=iteration,
+                                                                                   batch_size=batch_size,
+                                                                                   sample_vol=sample)
+                elif set == 'validation':
+                    x, y, sample_vol_idx = self.data.validation.test_image(img_idx=iteration,
+                                                                                   batch_size=batch_size,
+                                                                                   sample_vol=sample)
+                elif set == 'test':
+                    x, y, sample_vol_idx = self.data.test.test_image(img_idx=iteration,
+                                                                                   batch_size=batch_size,
+                                                                                   sample_vol=sample)
+                else:
+                    raise ValueError('Need to specify either train, validation or test split')
+
+                assert x.shape[0] == y.shape[0] == 1, print('Shape should be 1 in first dimension')
+
+
+                prediction, softmax = self.sess.run([self.p_pl_, self.y_pl_],
+                                                    feed_dict={self.x_pl: x, self.training_pl: False})
+
+
+                if gen_img:
+                    pred[iteration, :, :, ] = prediction
+                    labels[iteration,:,:,] = y
+
+                flat_label = y.flatten()
+                flat_pred = prediction.flatten()
+
+                sk_f1_macro = f1_score(flat_label, flat_pred, average='macro')
+
+                # obtain pearson corr for collagen fraction
+                if datatype == 'heart':
+                    epsi = 1e-10
+                    assert y.shape[0] == 1
+
+                    for i in range(y.shape[0]):
+                        coll_b = np.sum(y[i, :, :] == 1)
+                        coll_fake_b = np.sum(prediction[i, :, :] == 1)
+
+                        cells_b = np.sum(y[i, :, :] == 2)
+                        cells_fake_b = np.sum(prediction[i, :, :] == 2)
+
+                        fraction_b = coll_b / (epsi + cells_b)
+                        fraction_fake_b = coll_fake_b / (epsi + cells_fake_b)
+
+                    frac_list_b.append(fraction_b)
+                    frac_list_fake_b.append(fraction_fake_b)
+
+                dice += sk_f1_macro
+
+                num_batches += 1
+
+                # get the mean dice score for the dataset
+            mean_dice_score = dice / num_batches
+            corr, _ = pearsonr(frac_list_b, frac_list_fake_b)
+
+            print('INFO:  Mean Dice Score of Sample {} is: {}'.format(sample, mean_dice_score))
+            print('INFO:  Mean Pearson Corr. of Sample {} is: {}'.format(sample, corr))
+
+            sample_vol_idx_list.append(sample_vol_idx)
+
+            summary_dict[sample]['dice'] = mean_dice_score
+            summary_dict[sample]['corr'] = corr
+            summary_dict[sample]['real_frac'] = frac_list_b
+            summary_dict[sample]['fake_frac'] = frac_list_fake_b
+            summary_dict[sample]['sample_idx'] = sample_vol_idx
+            tot_dice += mean_dice_score
+            tot_corr += corr
+
+            if gen_img:
+                fold_grp.create_dataset(name='data_' + str(sample_vol_idx), data=labels, dtype=dtype)
+                fake_fold_grp.create_dataset(name='data_' + str(sample_vol_idx), data=pred, dtype=dtype)
+
+        tot_dice = tot_dice / num_sample_volumes
+        tot_corr = tot_corr / num_sample_volumes
+
+        print('INFO:  Total Mean Dice: {}'.format(tot_dice))
+        print('INFO:  Total Mean Pearson Corr: {}'.format(tot_corr))
+
+        return summary_dict
+
 
     ### HELPER FUNCTIONS ###################################################################################
 
