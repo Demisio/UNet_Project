@@ -9,9 +9,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
 #often changed parameters
 experiment_name = 'heart' # some name
-cv_fold = 4 # fold of cross validation
+cv_fold = 3 # fold of cross validation
 set = 'test' # 'train' / 'validation' / 'test' # at test time, which data should be used
-mode = 'limited' ## change this depending on how much data you want to use: 'limited' / 'full' / 'GAN'
+mode = 'no_aug' ## change this depending on how much data you want to use: 'limited' / 'full' / 'GAN' / 'no_aug' / 'no_aug_lim'
 
 
 #number of volumes
@@ -42,19 +42,30 @@ if mode == 'full':
     test_save_path = './Results/Heart'
     logging.info('Using all Data')
 elif mode == 'limited':
-    data_root = './data_processing/aug_heart_data_limited.h5'
-    log_name = 'Heart_limited'  # dict name in ./logs
-    test_save_path = './Results/Heart_limited'
+    data_root = './data_processing/aug_heart_data_very_limited.h5' #'./data_processing/aug_heart_data_limited.h5'
+    log_name = 'Heart_very_lim' #'Heart_limited'  # dict name in ./logs
+    test_save_path = './Results/Heart_very_lim' #'./Results/Heart_limited'
     logging.info('Using only limited Data')
 elif mode == 'GAN':
-    data_root = './data_processing/aug_heart_data_gan.h5'
+    data_root = './data_processing/gan_data.h5'
     log_name = 'Heart_GAN'  # dict name in ./logs
     test_save_path = './Results/Heart_GAN'
     logging.info('Using GAN augmented Data')
+elif mode == 'no_aug':
+    data_root = './data_processing/aug_heart_data_test.h5'
+    log_name = 'Heart_no_aug'  # dict name in ./logs
+    test_save_path = './Results/Heart_no_aug'
+    logging.info('Using non-augmented Data (only symmetric crops)')
+elif mode == 'no_aug_lim':
+    data_root = './data_processing/no_aug_heart_data_limited.h5'
+    log_name = 'Heart_no_aug_lim'  # dict name in ./logs
+    test_save_path = './Results/Heart_no_aug_lim'
+    logging.info('Using non-augmented, limited Data (only symmetric crops)')
 else:
     raise ValueError
 
 test_data_root = './data_processing/aug_heart_data_test.h5'
+# test_data_root = './data_processing/aug_heart_data.h5'
 
 dimensionality_mode = '2D'
 image_size = (240, 240)

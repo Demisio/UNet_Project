@@ -21,7 +21,7 @@ pred = None
 
 # Define the model
 real_start_time = time.time()
-for fold in range(1, exp_config.nr_folds + 1):
+for fold in range(3,4): #(1, exp_config.nr_folds + 1)
     start_time = time.time()
 
     data_loader = data_switch(exp_config.data_identifier)

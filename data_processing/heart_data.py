@@ -42,6 +42,8 @@ class heart_data():
                                                               random_state=42,
                                                               shuffle=True)
 
+        print('INFO: Validation IDs are: {}'.format(val_ids))
+
         #also get indices for the TEST data.
         test_filename = os.path.join(split_path, 'test_fold_{}.txt'.format(fold))
         test_ids_list = [int(line.split('\n')[0]) for line in open(test_filename)]

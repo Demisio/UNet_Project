@@ -330,12 +330,14 @@ class segmenter:
         num_iterations = num_samples // batch_size
 
         tot_dice = 0
+        tot_dice_all = np.zeros(shape=(3))
         tot_corr = 0
         sample_vol_idx_list = []
 
         for sample in range(num_sample_volumes):
             print('INFO:   Currently iterating through sample volume {} (non-coded)'.format(sample))
             dice = 0
+            dice_all = np.zeros(shape=(3))
             frac_list_b = []
             frac_list_fake_b = []
             num_batches = 0
@@ -348,7 +350,7 @@ class segmenter:
 
             for iteration in range(int(num_iterations)):
 
-                if iteration % 100 == 0:
+                if iteration % 500 == 0:
                     print('INFO:   Currently at iteration {} / {}'.format(iteration, int(num_iterations)))
 
                 # iterate also over number of sample volumes
@@ -382,6 +384,7 @@ class segmenter:
                 flat_pred = prediction.flatten()
 
                 sk_f1_macro = f1_score(flat_label, flat_pred, average='macro')
+                sk_f1_all = f1_score(flat_label, flat_pred, average=None)
 
                 # obtain pearson corr for collagen fraction
                 if datatype == 'heart':
@@ -389,11 +392,11 @@ class segmenter:
                     assert y.shape[0] == 1
 
                     for i in range(y.shape[0]):
-                        coll_b = np.sum(y[i, :, :] == 1)
-                        coll_fake_b = np.sum(prediction[i, :, :] == 1)
+                        coll_b = np.count_nonzero(y[i, :, :] == 1)
+                        coll_fake_b = np.count_nonzero(prediction[i, :, :] == 1)
 
-                        cells_b = np.sum(y[i, :, :] == 2)
-                        cells_fake_b = np.sum(prediction[i, :, :] == 2)
+                        cells_b = np.count_nonzero(y[i, :, :] == 2)
+                        cells_fake_b = np.count_nonzero(prediction[i, :, :] == 2)
 
                         fraction_b = coll_b / (epsi + cells_b)
                         fraction_fake_b = coll_fake_b / (epsi + cells_fake_b)
@@ -402,24 +405,31 @@ class segmenter:
                     frac_list_fake_b.append(fraction_fake_b)
 
                 dice += sk_f1_macro
+                dice_all += sk_f1_all
 
                 num_batches += 1
 
                 # get the mean dice score for the dataset
             mean_dice_score = dice / num_batches
+            mean_dice_all = dice_all / num_batches
+
             corr, _ = pearsonr(frac_list_b, frac_list_fake_b)
 
+            print('INFO:  Indiv. Dice Scores of Sample {} are: {}'.format(sample, mean_dice_all))
             print('INFO:  Mean Dice Score of Sample {} is: {}'.format(sample, mean_dice_score))
             print('INFO:  Mean Pearson Corr. of Sample {} is: {}'.format(sample, corr))
 
             sample_vol_idx_list.append(sample_vol_idx)
 
             summary_dict[sample]['dice'] = mean_dice_score
+            summary_dict[sample]['all_dice'] = mean_dice_all
             summary_dict[sample]['corr'] = corr
             summary_dict[sample]['real_frac'] = frac_list_b
             summary_dict[sample]['fake_frac'] = frac_list_fake_b
             summary_dict[sample]['sample_idx'] = sample_vol_idx
+
             tot_dice += mean_dice_score
+            tot_dice_all += mean_dice_all
             tot_corr += corr
 
             if gen_img:
@@ -427,8 +437,11 @@ class segmenter:
                 fake_fold_grp.create_dataset(name='data_' + str(sample_vol_idx), data=pred, dtype=dtype)
 
         tot_dice = tot_dice / num_sample_volumes
+        tot_dice_all = tot_dice_all / num_sample_volumes
+
         tot_corr = tot_corr / num_sample_volumes
 
+        print('INFO:  Total Indiv. Dice: {}'.format(tot_dice_all))
         print('INFO:  Total Mean Dice: {}'.format(tot_dice))
         print('INFO:  Total Mean Pearson Corr: {}'.format(tot_corr))
 

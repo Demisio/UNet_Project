@@ -1,3 +1,6 @@
+
+### Creates test data, meaning no rotation or flips. Crops are not random but rather chosen to crop the whole image symmetrically ###
+
 import numpy as np
 import nibabel as nib
 import logging
@@ -7,51 +10,13 @@ import os
 np.random.seed(42)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
-def rotate_90_flip(arr, dimensions, rotate=True, flip=True):
+
+
+def crop(arr, dimensions, syn_arr, syn_dim, crop_size, nr_crops, aug_factor):
     """
-    rotate and flip the input images (90 degree, horizontal & vertical flips)
-    :param arr:
-    :param dimensions:
-    :param rotate:
-    :param flip:
-    :return:
-    """
-
-    #TODO: Integrate conditionals for flips & rotations
-
-    # if rotate and flip:
-    aug_array = np.zeros(shape=[8*dimensions[0], dimensions[1], dimensions[2], dimensions[3]], dtype=np.uint8)
-    # elif rotate and not flip or flip and not rotate:
-    #     aug_array = np.zeros(shape=[4 * dimensions[0], dimensions[1], dimensions[2], dimensions[3]], dtype=np.uint8)
-    # else:
-    #     aug_array = np.zeros(shape=dimensions, dtype=np.uint8)
-
-    aug_dimensions = aug_array.shape
-    logging.info('New dimensions of array, after augmentation: {}'.format(aug_dimensions))
-
-    ## Indices of this part:
-    ## Augmentation of 1 image into 8 --> 8 * original index = original image in augmented array
-    ## Rotations are at indices current_index + 1 / 2 / 3
-    ## Flips are at current_index + 4 / 5 / 6 / 7
-    for ind in range(dimensions[0]):
-        aug_ind = 8 * ind
-        aug_array[aug_ind,:,:,0] = arr[ind,:,:,0]
-        for i in range(1,4):
-            aug_array[aug_ind + i, :, :, 0] = np.rot90(arr[ind,:,:,0], i)
-            if i == 2:
-                aug_array[aug_ind + 4, :, :, 0] = np.fliplr(arr[ind,:,:,0])
-                aug_array[aug_ind + 5, :, :, 0] = np.flipud(arr[ind,:,:,0])
-            elif i == 3:
-                aug_array[aug_ind + 6, :, :, 0] = np.fliplr(aug_array[aug_ind + i,:,:,0])
-                aug_array[aug_ind + 7, :, :, 0] = np.flipud(aug_array[aug_ind + i,:,:,0])
-
-        assert np.array_equal(aug_array[aug_ind,:,:,:], arr[ind,:,:,:])
-
-    return aug_array, aug_dimensions
-
-def crop(arr, dimensions, syn_arr, syn_dim, crop_size, nr_crops):
-    """
-    crops an input array to the desired size (only squares currently)
+    here, crop only works properly if you choose crop size as [total image size / N + 10],
+    e.g. total size = 460 -> N = 2 --> crop size = 230 + 10 = 240
+    ensure that nr_crops has a normal number as output (proper integer), e.g. 4, 9, 16,...
     :param arr: raw / real images
     :param dimensions: dimensions of raw images pre-cropping
     :param syn_arr: synthetic images / GT images
@@ -64,23 +29,41 @@ def crop(arr, dimensions, syn_arr, syn_dim, crop_size, nr_crops):
     crop_arr = np.zeros(shape=[nr_crops*dimensions[0], crop_size, crop_size, dimensions[3]], dtype=np.uint8)
     syn_crop = np.zeros(shape=[nr_crops*syn_dim[0], crop_size, crop_size, syn_dim[3]], dtype=np.uint8)
 
+    mod_crop = crop_size - 10
     for ind in range(dimensions[0]):
         new_ind = nr_crops*ind
-        for i in range(nr_crops):
-            # do random cropping of rotated and flipped images --> add something like translation invariance but without border problems
-            start_x = int(np.random.uniform(0, dimensions[1] - crop_size))
-            start_y = int(np.random.uniform(0, dimensions[2] - crop_size))
-            stop_x = start_x + crop_size
-            stop_y = start_y + crop_size
-            crop_arr[new_ind + i,:,:,:] = arr[ind, start_x:stop_x, start_y:stop_y, :]
-            syn_crop[new_ind + i,:,:,:] = syn_arr[ind, start_x:stop_x, start_y:stop_y, :]
+        help_idx = 0
+        for i in range(int(np.sqrt(nr_crops))):
+            if i > 0:
+                start_x = (i * mod_crop) - 10
+            else: start_x = 0
+            for l in range(int(np.sqrt(nr_crops))):
+                if l > 0:
+                    start_y = (l * mod_crop) - 10
+                else:
+                    start_y = 0
+                stop_x = start_x + crop_size
+                stop_y = start_y + crop_size
+                crop_arr[new_ind + help_idx,:,:,:] = arr[ind, start_x:stop_x, start_y:stop_y, :]
+                syn_crop[new_ind + help_idx,:,:,:] = syn_arr[ind, start_x:stop_x, start_y:stop_y, :]
+
+                # if ind % 500 == 0:
+                #     print('Help index: {}'.format(help_idx))
+                help_idx += 1
+
 
     crop_dim = crop_arr.shape
     syn_crop_dim = syn_crop.shape
 
     logging.info('New dimensions of array, after cropping: {}'.format(crop_dim))
 
-    return crop_arr, crop_dim, syn_crop, syn_crop_dim
+    # crop_tile = np.tile(crop_arr, (aug_factor, 1, 1, 1))
+    # crop_syn_tile = np.tile(syn_crop, (aug_factor, 1, 1, 1))
+    # tile_dim = crop_tile.shape
+    # syn_tile_dim = crop_syn_tile.shape
+    # logging.info('New dimensions of array, after tiling: {}'.format(tile_dim))
+
+    return crop_tile, tile_dim, crop_syn_tile, syn_tile_dim
 
 def create_hdf5(file , raw_file, syn_file, raw_dim, syn_dim, group_a, group_b, iteration, aug_factor):
 
@@ -131,17 +114,12 @@ def create_hdf5(file , raw_file, syn_file, raw_dim, syn_dim, group_a, group_b, i
 
 if __name__ == '__main__':
 
-    rotate = True
-    flip = True
+
     nr_crops = 4
-    filename = 'aug_heart_data.h5' #'aug_heart_data_very_limited.h5'
+    filename = 'non_aug_data.h5'
 
     raw_data_path = './../Data/Heart/3D/Raw/'
-    # raw_data_path = './../Data/Heart/3D/Raw_very_lim_data/'
-
-    syn_data_path = './../Data/Heart/3D/Segmented_og_labels/'
-    # syn_data_path = './../Data/Heart/3D/Segmented_og_labels_very_lim/'
-
+    syn_data_path = './../Data/Heart/3D/Segmented_noisy/'
 
     raw_files = os.listdir(raw_data_path)
     syn_files = os.listdir(syn_data_path)
@@ -192,9 +170,6 @@ if __name__ == '__main__':
         raw_dimensions = raw_data.shape
         logging.info('Data dimensions: {}'.format(raw_dimensions))
 
-        ##Augmentations (cropping at same time, below)
-        raw_aug_array, raw_aug_dim = rotate_90_flip(raw_data,raw_dimensions, rotate=rotate, flip=flip)
-
         ## synthetic files / ground truth
         syn_im_path = sort_syn_paths[idx]
         syn_file_name = sort_syn_names[idx]
@@ -204,11 +179,9 @@ if __name__ == '__main__':
         syn_dimensions = syn_data.shape
         logging.info('Data dimensions: {}'.format(syn_dimensions))
 
-        ##Augmentations
-        syn_aug_array, syn_aug_dim = rotate_90_flip(syn_data, syn_dimensions, rotate=rotate, flip=flip)
 
         ## cropping for both at the same time to get same areas
-        raw_crop_array, raw_crop_dim, syn_crop_array, syn_crop_dim = crop(raw_aug_array, raw_aug_dim, syn_aug_array, syn_aug_dim, 240, 4)
+        raw_crop_array, raw_crop_dim, syn_crop_array, syn_crop_dim = crop(raw_data, raw_dimensions, syn_data, syn_dimensions, 240, 4, 4)
 
         #get augmentation factor for later indexing
         aug_factor = int(raw_crop_dim[0] / raw_dimensions[0])
