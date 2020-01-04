@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 experiment_name = 'heart' # some name
 cv_fold = 3 # fold of cross validation
 set = 'test' # 'train' / 'validation' / 'test' # at test time, which data should be used
-mode = 'no_aug' ## change this depending on how much data you want to use: 'limited' / 'full' / 'GAN' / 'no_aug' / 'no_aug_lim'
+mode = 'full' ## change this depending on how much data you want to use: 'limited' / 'full' / 'GAN' / 'no_aug' / 'no_aug_lim'
 
 
 #number of volumes
