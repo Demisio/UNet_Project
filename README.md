@@ -145,5 +145,6 @@ Provides the heart data with the given data split, interacts with the model itse
 <b>Results</b><br />
 Folder contains pickle files (and optionally images) with all results
 Has a subfolder 'Plotting' where these results can be plotted.
+subfolders 'Heart_all' and 'Heart_all_no_aug' contain the pickle files for the plots in the report.
 <br />
 
