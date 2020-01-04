@@ -87,6 +87,11 @@ A short overview of the most relevant scripts is provided at the bottom of the R
     <pre>./Results/Heart
     ./Results/Heart_limited</pre>
     
+3.  Make sure the mode in 'heart_config.py' is set to the desired configuration:
+    <pre>mode = 'full'    #all standard augmented data
+    mode = 'limited' #limited, standard augmented data
+    mode = 'GAN'     #GAN augmented data</pre>
+    
 3.  Run the test as follows:
     <pre>python segmenter_test.py</pre>
     
