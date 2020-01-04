@@ -17,7 +17,7 @@ Should problems arise, pre-trained networks can be requested by writing an email
 
 ## Installation
 1.  Clone or download the repository:
-    <pre> git clone https://github.com/Demisio/UNet.git </pre>
+    <pre> git clone https://github.com/Demisio/UNet_Project.git </pre>
     
 2.  Create an environment for the packages to be installed. With conda, e.g: 
     <pre>conda create -n UDCT python=3.6</pre>
