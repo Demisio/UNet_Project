@@ -8,8 +8,11 @@ All paths are relative. If submission of a batch file is desired, some paths mig
 
 A short overview of the most relevant scripts is provided at the bottom of the README.
 
-Due to limited space for storing large files on github, only one pretrained model has been uploaded (full data model).
-Additional pre-trained networks can be requested by writing an email to: 
+Due to limited space for storing large files on github, pretrained models were uploaded to polybox
+(https://polybox.ethz.ch/index.php/s/7bURunZHRiAVNMY). Open the link, navigate into the folder Unet
+and copy the folder logs into this Unet directory after cloning it.
+
+Should problems arise, pre-trained networks can be requested by writing an email to: 
 [cenerd@student.ethz.ch](mailto:cenerd@student.ethz.ch)
 
 ## Installation
@@ -24,7 +27,12 @@ Additional pre-trained networks can be requested by writing an email to:
     
 4.  Required CUDA / CUDNN versions:
     <pre>Python 3.6, TF 1.4: CUDA 8.0 / CUDNN 6.0</pre>
-    
+
+## Copying pre-trained Models (optional)
+Due to limited space for storing large files on github, pretrained models were uploaded to polybox
+(https://polybox.ethz.ch/index.php/s/7bURunZHRiAVNMY). Open the link, navigate into the folder Unet
+and copy the folder logs into this Unet directory after cloning it.
+
 ## Creating a Dataset, Data Splits and Log Folders
 1.  Images are given in ./Data/Heart/3D. Creating a hdf5 dataset is achieved by navigating into the folder dataprocessing
     and executing the file heart_augment_loader.py
@@ -110,7 +118,7 @@ Additional pre-trained networks can be requested by writing an email to:
     <pre>bar_dir = './../Heart_all/'
     sample_nr = 0 #define sample volume for which results should be plotted (e.g. 0 or 1 for  test set)</pre>
     
-### Relevant Files
+## Relevant Files
 
 <b>segmenter/experiments/heart_config.py</b><br />
 Contains all relevant model parameters, change here to conduct different experiments
