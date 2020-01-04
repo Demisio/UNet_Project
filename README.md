@@ -20,7 +20,7 @@ Should problems arise, pre-trained networks can be requested by writing an email
     <pre> git clone https://github.com/Demisio/UNet_Project.git </pre>
     
 2.  Create an environment for the packages to be installed. With conda, e.g: 
-    <pre>conda create -n UDCT python=3.6</pre>
+    <pre>conda create -n Unet python=3.6</pre>
 
 2.  Install requirements via: 
     <pre> pip install -r requirements.txt </pre>
