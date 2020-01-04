@@ -28,7 +28,7 @@ Should problems arise, pre-trained networks can be requested by writing an email
 4.  Required CUDA / CUDNN versions:
     <pre>Python 3.6, TF 1.4: CUDA 8.0 / CUDNN 6.0</pre>
 
-## Copying pre-trained Models (optional)
+## Copying pre-trained Models (optional but advised for proper folder structure)
 Due to limited space for storing large files on github, pretrained models were uploaded to polybox
 (https://polybox.ethz.ch/index.php/s/7bURunZHRiAVNMY). Open the link, navigate into the folder Unet
 and copy the folder logs into this Unet directory after cloning it.
