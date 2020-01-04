@@ -7,6 +7,11 @@ Note: The code was executed on a cluster via an interactive terminal shell in th
 All paths are relative. If submission of a batch file is desired, some paths might have to be set to absolute ones.
 
 A short overview of the most relevant scripts is provided at the bottom of the README.
+
+Due to limited space for storing large files on github, only one pretrained model has been uploaded (full data model).
+Additional pre-trained networks can be requested by writing an email to: 
+[cenerd@student.ethz.ch](mailto:cenerd@student.ethz.ch)
+
 ## Installation
 1.  Clone or download the repository:
     <pre> git clone https://github.com/Demisio/UNet.git </pre>
